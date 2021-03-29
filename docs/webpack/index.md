@@ -135,5 +135,19 @@
         }
         
     - devtool
+        配置sourceMap
+        'cheap-module-eval-source-map' : false // 前者对应dev环境，不会生成单独的source-map 文件， 而会打包到bundler中， 并且只会将错误定位到行
 
+    - devServer
+        webpack 本地服务器
+        {
+            contentBase: path.join(__dirname, 'dist'),
+            compress: true,
+            port: 9000,
+            proxy: {
+                '/api': 'http://localhost:3000',
+            }
+        }
+## babel eslint + prettier pre-comit + husky typescript 相关配置
+https://lins-iww.github.io/lins_blog/webpack/
 　
