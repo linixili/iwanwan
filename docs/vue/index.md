@@ -242,3 +242,150 @@
     然后调用vm_.update方法更新dom
     Watcher 在这里起到两个作用，一个是初始化的时候会执行回调函数，另一个是当 
     vm 实例中的监测的数据发生变化的时候执行回调函数。
+
+### vm._render 
+    Vue.prototype._render = function (): VNode {
+      const vm: Component = this
+      const { render, _parentVnode } = vm.$options
+
+      // reset _rendered flag on slots for duplicate slot check
+      if (process.env.NODE_ENV !== 'production') {
+        for (const key in vm.$slots) {
+          // $flow-disable-line
+          vm.$slots[key]._rendered = false
+        }
+      }
+
+      if (_parentVnode) {
+        vm.$scopedSlots = _parentVnode.data.scopedSlots || emptyObject
+      }
+
+      // set parent vnode. this allows render functions to have access
+      // to the data on the placeholder node.
+      vm.$vnode = _parentVnode
+      // render self
+      let vnode
+      try {
+        vnode = render.call(vm._renderProxy, vm.$createElement)
+      } catch (e) {
+        handleError(e, vm, `render`)
+        // return error render result,
+        // or previous vnode to prevent render error causing blank component
+        /* istanbul ignore else */
+        if (process.env.NODE_ENV !== 'production') {
+          if (vm.$options.renderError) {
+            try {
+              vnode = vm.$options.renderError.call(vm._renderProxy, vm.$createElement, e)
+            } catch (e) {
+              handleError(e, vm, `renderError`)
+              vnode = vm._vnode
+            }
+          } else {
+            vnode = vm._vnode
+          }
+        } else {
+          vnode = vm._vnode
+        }
+      }
+      // return empty vnode in case the render function errored out
+      if (!(vnode instanceof VNode)) {
+        if (process.env.NODE_ENV !== 'production' && Array.isArray(vnode)) {
+          warn(
+            'Multiple root nodes returned from render function. Render function ' +
+            'should return a single root node.',
+            vm
+          )
+        }
+        vnode = createEmptyVNode()
+      }
+      // set parent
+      vnode.parent = _parentVnode
+      return vnode
+    }
+ ###
+    vm._render 方法实际上会获取compiltToFunction转换生成的render函数，执行这个render函数
+    绑定 vm._renderProxy 传入createElement 方法生成vnode 并返回这个vnode, 而这个createElement、
+    方法是在initRender 函数中绑定到vm实例上的。
+### virtual dom
+    virtual dom 使用一个原生的js对象去描述一个dom节点，浏览器在设计dom元素时设计的相当复杂，
+    因此操作多个dom成本较高，会来带一定的性能问题。
+
+###
+    export default class VNode {
+      tag: string | void;
+      data: VNodeData | void;
+      children: ?Array<VNode>;
+      text: string | void;
+      elm: Node | void;
+      ns: string | void;
+      context: Component | void; // rendered in this component's scope
+      key: string | number | void;
+      componentOptions: VNodeComponentOptions | void;
+      componentInstance: Component | void; // component instance
+      parent: VNode | void; // component placeholder node
+
+      // strictly internal
+      raw: boolean; // contains raw HTML? (server only)
+      isStatic: boolean; // hoisted static node
+      isRootInsert: boolean; // necessary for enter transition check
+      isComment: boolean; // empty comment placeholder?
+      isCloned: boolean; // is a cloned node?
+      isOnce: boolean; // is a v-once node?
+      asyncFactory: Function | void; // async component factory function
+      asyncMeta: Object | void;
+      isAsyncPlaceholder: boolean;
+      ssrContext: Object | void;
+      fnContext: Component | void; // real context vm for functional nodes
+      fnOptions: ?ComponentOptions; // for SSR caching
+      fnScopeId: ?string; // functional scope id support
+
+      constructor (
+        tag?: string,
+        data?: VNodeData,
+        children?: ?Array<VNode>,
+        text?: string,
+        elm?: Node,
+        context?: Component,
+        componentOptions?: VNodeComponentOptions,
+        asyncFactory?: Function
+      ) {
+        this.tag = tag
+        this.data = data
+        this.children = children
+        this.text = text
+        this.elm = elm
+        this.ns = undefined
+        this.context = context
+        this.fnContext = undefined
+        this.fnOptions = undefined
+        this.fnScopeId = undefined
+        this.key = data && data.key
+        this.componentOptions = componentOptions
+        this.componentInstance = undefined
+        this.parent = undefined
+        this.raw = false
+        this.isStatic = false
+        this.isRootInsert = true
+        this.isComment = false
+        this.isCloned = false
+        this.isOnce = false
+        this.asyncFactory = asyncFactory
+        this.asyncMeta = undefined
+        this.isAsyncPlaceholder = false
+      }
+
+      // DEPRECATED: alias for componentInstance for backwards compat.
+      /* istanbul ignore next */
+      get child (): Component | void {
+        return this.componentInstance
+      }
+    }
+###
+  其实vnode 是对真是dom的一种抽象描述， 他的核心定义无非几个关键属性， tag
+  child data key 其他的属性是为了拓展vue 特性 加入的 vue特色的东西。
+  virtual dom 除了他数据结构的定义 映射到真实dom 实际上需要经过vnode 的
+  create diff patch 等过程。 vode 的create 阶段是通过createElement 
+  方法实现的。
+
+### createElement
+  
